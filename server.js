@@ -17,7 +17,7 @@ const EMAIL_PASS = process.env.EMAIL_PASS;
 console.log("EMAIL_USER:", EMAIL_USER ? "SET" : "NOT SET");
 console.log("EMAIL_PASS:", EMAIL_PASS ? "SET" : "NOT SET");
 
-// Mail transporter (Gmail SMTP)
+// Gmail SMTP transporter
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
@@ -30,17 +30,17 @@ const transporter = nodemailer.createTransport({
 
 let alertSent = false;
 
-// Health route
+// ===== Health route =====
 app.get("/", (req, res) => {
-  res.send("✅ ThingSpeak Alert System is LIVE");
+  res.send("✅ ThingSpeak Alert System is LIVE (1-Minute Threshold)");
 });
 
-// Start server
+// ===== Start server =====
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
 
-// Background monitoring
+// ===== Background monitoring =====
 setInterval(async () => {
   try {
     const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${READ_API_KEY}&results=1`;
@@ -55,23 +55,28 @@ setInterval(async () => {
 
     console.log(`Last update: ${diffMin.toFixed(2)} minutes ago`);
 
-    if (diffMin > 5 && !alertSent) {
-      console.log("🚨 ALERT CONDITION MET – sending email");
+    // 🔴 THRESHOLD CHANGED TO 1 MINUTE
+    if (diffMin > 1 && !alertSent) {
+      console.log("🚨 ALERT CONDITION MET (1 minute) – sending email");
 
       await transporter.sendMail({
         from: EMAIL_USER,
         to: EMAIL_USER,
-        subject: "⚠ ThingSpeak Alert (Test)",
+        subject: "⚠ ThingSpeak Alert (1-Minute Threshold)",
         text:
-          "TEST ALERT\n\nNo data received from ThingSpeak for more than 5 minutes.",
+          "ALERT!\n\nNo data received from ThingSpeak Channel (ID: 3099976) for more than 1 minute.",
       });
 
       alertSent = true;
       console.log("📧 Alert email sent");
     }
 
-    if (diffMin <= 5) alertSent = false;
+    // Reset when data resumes
+    if (diffMin <= 1) {
+      alertSent = false;
+    }
   } catch (err) {
     console.error("❌ Error:", err.message);
   }
-}, 60000);
+}, 60000); // still checking every 1 minute
+
